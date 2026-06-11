@@ -56,7 +56,7 @@
 <div class="grid">
   <div class="col">
     <h2>Pre-filter + inject</h2>
-    <p class="sub">Strip <code>/[^\d.eE+-]/g</code>, bail if not <code>Number.isFinite</code>, inject the stripped value via the prototype setter.</p>
+    <p class="sub">Strip <code>/[^\d.eE-]/g</code>, bail if not <code>Number.isFinite</code>, inject the stripped value via the prototype setter.</p>
     <input type="number" id="filterField">
     <div class="results" id="filterResults"></div>
   </div>
@@ -78,7 +78,7 @@
   const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
 
   function preFilterInject(raw) {
-    const stripped = raw.replace(/[^\d.eE+-]/g, "");
+    const stripped = raw.replace(/[^\d.eE-]/g, "");
     if (!stripped || !Number.isFinite(Number(stripped))) {
       return { sent: stripped, skipped: true };
     }
