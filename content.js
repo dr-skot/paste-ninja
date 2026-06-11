@@ -41,7 +41,7 @@
     // Bail if nothing useful remains. Approximates Chromium's char-by-char extraction without
     // replicating its full state machine.
     if (target.type === "number") {
-      clipboard = clipboard.replace(/[^\d.eE+-]/g, "");
+      clipboard = clipboard.replace(/[^\d.eE-]/g, "");
       if (!clipboard || !Number.isFinite(Number(clipboard))) return;
     }
 
@@ -69,22 +69,12 @@
       next = value;
     }
 
-    // type=number silently strips non-numeric chars. Switch to text first.
-    const originalType = el.type;
-    if (el.tagName === "INPUT" && el.type === "number") {
-      el.type = "text";
-    }
-
     setter.call(el, next);
     if (caret !== undefined) {
       try { el.setSelectionRange(caret, caret); } catch {}
     }
     el.dispatchEvent(new Event("input",  { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
-
-    if (originalType === "number") {
-      setTimeout(() => { el.type = originalType; }, 0);
-    }
 
     // Visual ack — 400ms green outline pulse
     const oldOutline = el.style.outline;

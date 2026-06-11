@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>type=number injection comparison</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; max-width: 1100px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+  h1 { margin-bottom: 0.25rem; }
+  .lede { color: #666; margin-top: 0; }
+  .input-row { background: #f8f8f8; border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin: 1rem 0; display: flex; gap: 0.5rem; align-items: center; }
+  .input-row input { font: inherit; padding: 0.4rem 0.6rem; border: 1px solid #bbb; border-radius: 4px; flex: 1; }
+  .input-row button { font: inherit; padding: 0.4rem 0.9rem; border: 1px solid #555; background: #333; color: white; border-radius: 4px; cursor: pointer; }
+  .input-row button:hover { background: #555; }
+  .presets { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 1.5rem; }
+  .presets button { font: inherit; font-family: ui-monospace, monospace; font-size: 12px; padding: 0.25rem 0.5rem; background: white; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; }
+  .presets button:hover { background: #eee; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+  .col { border: 1px solid #ddd; border-radius: 6px; padding: 1rem; }
+  .col h2 { font-size: 1rem; margin: 0 0 0.5rem; }
+  .col .sub { color: #666; font-size: 12px; margin: 0 0 0.75rem; }
+  .col input[type=number] { font: inherit; padding: 0.4rem 0.6rem; width: 100%; box-sizing: border-box; border: 1px solid #bbb; border-radius: 4px; }
+  .results { margin-top: 0.75rem; font-family: ui-monospace, monospace; font-size: 12px; }
+  .results .row { display: flex; gap: 0.5rem; padding: 0.2rem 0; }
+  .results .label { color: #888; min-width: 90px; }
+  .results .val { background: #f4f4f4; padding: 0 0.3em; border-radius: 3px; flex: 1; word-break: break-all; }
+  .results .val.empty { color: #c0392b; font-style: italic; }
+  .results .val.skip { color: #888; font-style: italic; }
+</style>
+</head>
+<body>
+
+<h1>type=number injection comparison</h1>
+<p class="lede">Tests whether PasteNinja's pre-filter is necessary, or if we can just inject the raw clipboard text directly. Enter a string below (or pick a preset), click Run, and see what each path produces.</p>
+
+<div class="input-row">
+  <input type="text" id="clip" placeholder="enter a string to inject as clipboard content" value="$1,300">
+  <button id="run">Run</button>
+</div>
+
+<div class="presets">
+  <strong style="margin-right: 0.5rem; align-self: center; font-size: 12px;">Presets:</strong>
+  <button data-text="1300">1300</button>
+  <button data-text="$1,300">$1,300</button>
+  <button data-text="3024 234 1213 3432">3024 234 1213 3432</button>
+  <button data-text="1.5">1.5</button>
+  <button data-text="-12">-12</button>
+  <button data-text="1e5">1e5</button>
+  <button data-text="abc12">abc12</button>
+  <button data-text="supercalifragilistic-24chars!">supercali…!</button>
+  <button data-text="1.2.3">1.2.3</button>
+  <button data-text="+5">+5</button>
+  <button data-text="0x1F">0x1F</button>
+  <button data-text="">(empty)</button>
+</div>
+
+<div class="grid">
+  <div class="col">
+    <h2>Pre-filter + inject</h2>
+    <p class="sub">Strip <code>/[^\d.eE+-]/g</code>, bail if not <code>Number.isFinite</code>, inject the stripped value via the prototype setter.</p>
+    <input type="number" id="filterField">
+    <div class="results" id="filterResults"></div>
+  </div>
+  <div class="col">
+    <h2>Bare inject</h2>
+    <p class="sub">No filtering. Pass the raw clipboard string straight to the prototype setter on the type=number field.</p>
+    <input type="number" id="bareField">
+    <div class="results" id="bareResults"></div>
+  </div>
+  <div class="col">
+    <h2>Native paste</h2>
+    <p class="sub">After clicking Run, the raw string is copied to your clipboard. Then click the field and press <kbd>Cmd</kbd>-<kbd>V</kbd> to see what the browser's own paste handler produces.</p>
+    <input type="number" id="nativeField">
+    <div class="results" id="nativeResults"></div>
+  </div>
+</div>
+
+<script>
+  const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+
+  function preFilterInject(raw) {
+    const stripped = raw.replace(/[^\d.eE+-]/g, "");
+    if (!stripped || !Number.isFinite(Number(stripped))) {
+      return { sent: stripped, skipped: true };
+    }
+    return { sent: stripped, skipped: false };
+  }
+
+  function render(resultsEl, fieldEl, raw, info) {
+    if (info.skipped) {
+      // mimic PasteNinja's "bail" behavior — don't touch the field
+      // but still show what we would have sent
+    } else {
+      nativeSetter.call(fieldEl, info.sent);
+      fieldEl.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    const after = fieldEl.value;
+    resultsEl.innerHTML = "";
+    const row = (label, val, klass) => {
+      const r = document.createElement("div");
+      r.className = "row";
+      r.innerHTML = `<span class="label">${label}</span><span class="val ${klass || ''}">${val === "" ? "(empty)" : escapeHtml(val)}</span>`;
+      return r;
+    };
+    resultsEl.appendChild(row("raw input:", raw, raw === "" ? "empty" : ""));
+    resultsEl.appendChild(row("sent to setter:", info.sent, info.skipped ? "skip" : (info.sent === "" ? "empty" : "")));
+    resultsEl.appendChild(row("Number(sent):", info.sent === "" ? "NaN" : String(Number(info.sent))));
+    resultsEl.appendChild(row("isFinite:", info.sent === "" ? "false" : String(Number.isFinite(Number(info.sent)))));
+    resultsEl.appendChild(row(info.skipped ? "field (skipped):" : "field after:", after, after === "" ? "empty" : ""));
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+
+  function clearFields() {
+    nativeSetter.call(document.getElementById("filterField"), "");
+    nativeSetter.call(document.getElementById("bareField"), "");
+  }
+
+  async function run() {
+    const raw = document.getElementById("clip").value;
+    clearFields();
+
+    const filterInfo = preFilterInject(raw);
+    render(document.getElementById("filterResults"), document.getElementById("filterField"), raw, filterInfo);
+
+    // Bare inject: just send the raw value, no filtering, no bail
+    const bareInfo = { sent: raw, skipped: false };
+    render(document.getElementById("bareResults"), document.getElementById("bareField"), raw, bareInfo);
+
+    // Native paste: load the clipboard and prompt the user
+    try {
+      await navigator.clipboard.writeText(raw);
+      const nativeResults = document.getElementById("nativeResults");
+      const nativeField = document.getElementById("nativeField");
+      nativeResults.innerHTML = "";
+      const r = document.createElement("div");
+      r.className = "row";
+      r.innerHTML = `<span class="label">status:</span><span class="val skip">Clipboard set to ${raw === "" ? "(empty)" : escapeHtml(JSON.stringify(raw))}. Click the field and press Cmd-V.</span>`;
+      nativeResults.appendChild(r);
+      nativeField.focus();
+    } catch (err) {
+      document.getElementById("nativeResults").innerHTML = `<div class="row"><span class="label">error:</span><span class="val empty">${escapeHtml(err.message)}</span></div>`;
+    }
+  }
+
+  // Update native results once the user actually pastes
+  document.getElementById("nativeField").addEventListener("input", () => {
+    const raw = document.getElementById("clip").value;
+    const field = document.getElementById("nativeField");
+    const results = document.getElementById("nativeResults");
+    results.innerHTML = "";
+    const row = (label, val, klass) => {
+      const r = document.createElement("div");
+      r.className = "row";
+      r.innerHTML = `<span class="label">${label}</span><span class="val ${klass || ''}">${val === "" ? "(empty)" : escapeHtml(val)}</span>`;
+      return r;
+    };
+    results.appendChild(row("clipboard was:", raw, raw === "" ? "empty" : ""));
+    results.appendChild(row("field after paste:", field.value, field.value === "" ? "empty" : ""));
+  });
+
+  document.getElementById("run").addEventListener("click", run);
+  document.getElementById("clip").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") run();
+  });
+
+  document.querySelectorAll(".presets button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.getElementById("clip").value = btn.dataset.text;
+      run();
+    });
+  });
+
+  // Run once on load with the default value
+  run();
+</script>
+
+</body>
+</html>
