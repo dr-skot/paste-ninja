@@ -1,25 +1,23 @@
-// PasteNinja — detect paste blockage and inject.
+// PasteNinja — detect paste rejection and inject.
 //
-// Single strategy: listen for paste events in capture phase, snapshot the
-// input's value, let the natural paste chain run, then check if the value
-// updated. If it did, do nothing. If it didn't (paste was blocked or
-// silently rejected), inject the clipboard.
+// Listen for paste events. When one fires, snapshot the target input's value,
+// then let the event chain run and check if the value changed. If it did, do
+// nothing. Otherwise, inject the clipboard text.
 //
-// Injection uses document.execCommand("insertText", ...) as the primary path
-// because it integrates with the browser's undo stack (Cmd-Z works), handles
-// caret position naturally, and triggers native sanitization for type=number
-// (e.g. "$1,300" → "1300" via Chromium's HandleBeforeTextInsertedEvent).
-// Falls back to the HTMLInputElement.prototype.value setter for cases where
-// execCommand returns false.
+// Why this method: The check-for-changes approach is preferable to existing
+// solutions that preemptively call `stopImmediatePropagation()` on all paste
+// events, which can 1) miss paste blockers that don't rely on paste events,
+// and/or 2) break sites that use their paste listeners for crucial
+// functionality (eg Google Sheets).
 //
-// Why this design (vs preemptive stopPropagation): we don't interfere with
-// legitimate paste handlers — rich text editors keep their HTML
-// sanitization, paste-magic URL detectors still fire, paste sanitizers
-// still strip what they want to strip. We only intervene when the field
-// genuinely failed to update.
+// Injection uses document.execCommand("insertText", ...) as the preferred path
+// because it leverages the browser's native undo support, caret-position
+// insertion, and number-sanitizing.
 //
-// Covers keyboard (Cmd-V/Ctrl-V), menu paste, and right-click paste
-// uniformly because all of them fire the paste event.
+// Because execCommand is deprecated but supported, we provide a fallback to
+// setter of HTMLInputElement.prototype.value. We do our own caret-position
+// management and a rough approximation of native number-sanitizing, but undo
+// support is lost.
 //
 // Runs at document_start in all frames.
 
@@ -40,11 +38,12 @@
     const before = target.value;
     const beforeBad = target.validity?.badInput;
 
-    // Wait for an input event on the target (native paste or a page handler
-    // actually inserted something), or for a timeout (paste was blocked at the
-    // event level and nothing happened). Event-driven detection handles slow
-    // native paths — notably type=number's char-by-char extraction, which can
-    // take >50ms for strings with separators — without false-positive injections.
+    // Wait for an `input` event (paste inserted something) or a timeout (paste
+    // failed). A 50ms timeout proved too short for some native paste
+    // operations, eg pasting "(212) 555-1212" into a type=number field, which
+    // triggers the browser's char-by-char extraction algorithm. 150ms seems to
+    // work, but hasn't been extensively tested. Most input events complete well
+    // before that.
     const inputFired = await new Promise((resolve) => {
       const handler = () => {
         target.removeEventListener("input", handler);
@@ -76,8 +75,8 @@
     // while we were waiting for the input event.
     el.focus();
 
-    // Primary path: native text insertion. Undoable via Cmd-Z, caret-aware,
-    // and routes type=number through the browser's char-by-char extraction.
+    // Primary path: native text insertion. Undoable via Cmd-Z, caret-aware, and
+    // routes type=number through the browser's char-by-char extraction.
     if (document.execCommand("insertText", false, value)) {
       pulse(el);
       return;
@@ -96,6 +95,7 @@
       : HTMLInputElement.prototype;
     const setter = Object.getOwnPropertyDescriptor(proto, "value").set;
 
+    // Determine the insertion point and generate the post-insertion value
     let next, caret;
     if (typeof el.selectionStart === "number") {
       const start = el.selectionStart;
@@ -106,16 +106,20 @@
       next = value;
     }
 
+    // Update the input value and set the caret position
     setter.call(el, next);
     if (caret !== undefined) {
       try { el.setSelectionRange(caret, caret); } catch {}
     }
+
+    // Dispatch the appropriate events
     el.dispatchEvent(new Event("input",  { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
 
     pulse(el);
   }
 
+  // Give a visual signal that PasteNinja intervened
   function pulse(el) {
     const oldOutline = el.style.outline;
     el.style.outline = "2px solid #4caf50";
