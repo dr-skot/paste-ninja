@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "PasteNinja",
   "version": "1.0.0",
-  "description": "Slips past paste blockers. Detects when a site silently refuses your paste and injects it anyway, leaving working sites alone.",
+  "description": "Slips past paste blockers, defending your god-given right to copy-and-paste.",
   "permissions": [],
   "host_permissions": ["<all_urls>"],
   "content_scripts": [

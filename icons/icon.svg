@@ -1,33 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
   <defs>
-    <mask id="ninja-band">
-      <rect width="128" height="128" fill="white"/>
-      <!-- rounded-rect slit cutout (eye opening) -->
-      <rect x="20" y="49" width="88" height="30" rx="10" fill="black"/>
-      <!-- bigger eyes peek back through the slit -->
-      <ellipse cx="48" cy="64" rx="9" ry="5" fill="white"/>
-      <ellipse cx="80" cy="64" rx="9" ry="5" fill="white"/>
-    </mask>
     <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#d8d8d8"/>
       <stop offset="1" stop-color="#909090"/>
     </linearGradient>
   </defs>
 
-  <!-- Clipboard body — wider, masked so the eye slit cuts through it -->
-  <g mask="url(#ninja-band)">
-    <path d="M 16 20
-             L 112 20
-             Q 120 20 120 28
-             L 120 116
-             Q 120 124 112 124
-             L 16 124
-             Q 8 124 8 116
-             L 8 28
-             Q 8 20 16 20 Z"
-          fill="#0a0a0a"/>
-  </g>
+  <!-- Clipboard body -->
+  <path d="M 16 20
+           L 112 20
+           Q 120 20 120 28
+           L 120 116
+           Q 120 124 112 124
+           L 16 124
+           Q 8 124 8 116
+           L 8 28
+           Q 8 20 16 20 Z"
+        fill="#0a0a0a"/>
 
-  <!-- Silver clip — wider, drawn outside the mask so it's not cut -->
-  <rect x="40" y="8" width="48" height="24" rx="4" fill="url(#metal)" stroke="#606060" stroke-width="1.5"/>
+  <!-- Face / skin showing through the mask slit (Lego minifig yellow) -->
+  <rect x="20" y="49" width="88" height="30" rx="10" fill="#ffd500"/>
+
+  <!-- Eyes -->
+  <ellipse cx="48" cy="64" rx="9" ry="5" fill="#0a0a0a"/>
+  <ellipse cx="80" cy="64" rx="9" ry="5" fill="#0a0a0a"/>
+
+  <!-- Silver clip — classic clipboard clip: small top lever + wider gripper bar -->
+  <!-- Top lever/pivot knob -->
+  <rect x="56" y="2" width="16" height="14" rx="3" fill="url(#metal)" stroke="#606060" stroke-width="1.2"/>
+  <!-- Gripper bar: trapezoid wider at the bottom where it clamps the paper -->
+  <polygon points="40,14 88,14 94,32 34,32" fill="url(#metal)" stroke="#606060" stroke-width="1.2"/>
 </svg>

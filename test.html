@@ -13,147 +13,119 @@
   .card input, .card textarea { font: inherit; padding: 0.4rem 0.5rem; width: 100%; box-sizing: border-box; border: 1px solid #bbb; border-radius: 4px; }
   .card textarea { min-height: 60px; }
   .expected { font-size: 0.85rem; color: #888; margin-top: 0.4rem; }
-  .pill { display: inline-block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.1rem 0.4rem; border-radius: 3px; vertical-align: middle; margin-right: 0.4rem; }
-  .pill.block { background: #fde0e0; color: #a01010; }
-  .pill.ok { background: #e0f5e0; color: #1a7010; }
-  .pill.edge { background: #fff3cd; color: #7a5a00; }
+  .badge { display: inline-block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.1rem 0.4rem; border-radius: 3px; vertical-align: middle; margin-right: 0.4rem; }
+  .badge.unblocked { background: #c8e6c9; color: #1a7010; }
+  .badge.blocked { background: #fde0e0; color: #a01010; }
   code { background: #f4f4f4; padding: 0 0.3em; border-radius: 3px; }
   code.sample-preview { margin-left: 0.5em; white-space: pre; }
-  .copybar { background: #f8f8f8; border: 1px solid #ddd; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1.5rem; display: flex; gap: 0.5rem; align-items: center; }
-  .copybar button { font: inherit; padding: 0.3rem 0.7rem; border: 1px solid #999; background: white; border-radius: 4px; cursor: pointer; }
-  .copybar button:hover { background: #eee; }
-  .copybar code { flex: 1; }
+  .samples { display: flex; flex-wrap: wrap; gap: 0.35rem 0.6rem; margin: 0.5rem 0 0.75rem; align-items: center; }
+  .samples > * { display: inline-flex; align-items: center; }
+  .samples code.sample-preview { margin-left: 0.3em; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.75rem; }
+  .split .badge { margin-bottom: 0.25rem; }
+  button.sample { font: inherit; padding: 0.3rem 0.4rem; border: 1px solid #bbb; background: white; border-radius: 4px; cursor: pointer; color: #444; display: inline-flex; align-items: center; line-height: 1; }
+  button.sample:hover { background: #f0f0f0; }
+  button.sample.copied { background: #4caf50; border-color: #388e3c; color: white; }
 </style>
 </head>
 <body>
 
 <h1>PasteNinja test page</h1>
-<p class="lede">Click into each field, paste, and observe. Green outline pulse = PasteNinja intervened. No pulse = browser-native paste worked (or nothing happened).</p>
+<p class="lede">Paste sample text into each field and observe. Green outline pulse = PasteNinja intervened. No pulse = browser-native paste worked (or nothing happened).</p>
 
-<div class="copybar">
-  <button id="copybtn">Copy test string</button>
-  <button id="imagebtn">Copy an image</button>
-  <code id="teststr">supercalifragilistic-24chars!</code>
-</div>
-
-<div class="copybar" id="selinfo" style="font-family: monospace; font-size: 12px;">
-  selection: <span id="selstate">(click into a field)</span>
+<div class="card">
+  <h2>Standard blocker</h2>
+  <p>The classic: <code>onpaste="return false"</code> or its equivalent <code>addEventListener("paste", (e) =&gt; e.preventDefault())</code></p>
+  <p><button class="sample" data-target="pd" data-text="p@ssw0rd123!" title="Copy sample"></button></p>
+  <div class="split">
+    <div>
+      <span class="badge unblocked">unblocked</span>
+      <input type="text" placeholder="paste here">
+    </div>
+    <div>
+      <span class="badge blocked">blocked</span>
+      <input type="text" placeholder="paste here" id="pd">
+    </div>
+  </div>
+  <div class="expected">Expected: both fields end up with the pasted text. Blocked field gets a green pulse.</div>
 </div>
 
 <div class="card">
-  <h2><span class="pill ok">control</span> Plain text input (no blocker)</h2>
-  <p>Sanity check. Paste should work natively.</p>
-  <input type="text" placeholder="paste here">
-  <div class="expected">Expected: paste works. <strong>No green pulse</strong> (PasteNinja stays out of the way).</div>
+  <h2>React-style controlled input</h2>
+  <p>Simulates a controlled component that reverts when <code>inputType === "insertFromPaste"</code>. Immune to solutions that stop propagation of <code>paste</code> events (eg the "Don't F*** With Paste" extension).</p>
+  <p><button class="sample" data-target="reactish" data-text="hello from clipboard" title="Copy sample"></button></p>
+  <div class="split">
+    <div>
+      <span class="badge unblocked">unblocked</span>
+      <input type="text" placeholder="paste here">
+    </div>
+    <div>
+      <span class="badge blocked">blocked</span>
+      <input type="text" placeholder="paste here" id="reactish">
+    </div>
+  </div>
+  <div class="expected">Expected: both fields end up with the pasted text. Blocked field gets a green pulse.</div>
 </div>
 
 <div class="card">
-  <h2><span class="pill block">blocker</span> preventDefault on paste event</h2>
-  <p>The classic blocker. <code>onpaste="return false"</code>-style.</p>
-  <input type="text" placeholder="paste here" id="pd">
-  <div class="expected">Expected: green pulse, field contains pasted text.</div>
+  <h2>Replace at caret</h2>
+  <p>Select "Good" and paste "Great".</p>
+  <p><button class="sample" data-target="prefill" data-text="Great" title="Copy sample"></button></p>
+  <div class="split">
+    <div>
+      <span class="badge unblocked">unblocked</span>
+      <input type="text" id="prefill" value="The Good Gatsby">
+    </div>
+    <div>
+      <span class="badge blocked">blocked</span>
+      <input type="text" id="prefillBlocked" value="The Good Gatsby">
+    </div>
+  </div>
+  <div class="expected">Expected: both end up with <code>The Great Gatsby</code>. Blocked field gets a green pulse. Undo works in both.</div>
 </div>
 
 <div class="card">
-  <h2><span class="pill block">blocker</span> Clear value after paste</h2>
-  <p>Paste fires, but the page wipes the field 0ms later via the input event.</p>
-  <input type="text" placeholder="paste here" id="clearOnPaste">
-  <div class="expected">Expected: green pulse, field contains pasted text.</div>
+  <h2>Normalization in <code>&lt;input type="number"&gt;</code></h2>
+  <p>Number inputs attempt to convert incoming text to numeric values. Behavior is quirky but should be the same in both fields.</p>
+  <div class="samples">
+    <span><button class="sample" data-target="num" data-text="$1,300" title="Copy $1,300"></button></span>
+    <span><button class="sample" data-target="num" data-text="+5" title="Copy +5"></button></span>
+    <span><button class="sample" data-target="num" data-text="abc12" title="Copy abc12"></button></span>
+    <span><button class="sample" data-target="num" data-text="1e5" title="Copy 1e5"></button></span>
+    <span><button class="sample" data-target="num" data-text="time 2 go" title="Copy time 2 go"></button></span>
+    <span><button class="sample" data-target="num" data-text="1.2.3" title="Copy 1.2.3"></button></span>
+    <span><button class="sample" data-target="num" data-text="(212) 555-1212" title="Copy (212) 555-1212"></button></span>
+  </div>
+  <div class="split">
+    <div>
+      <span class="badge unblocked">unblocked</span>
+      <input type="number" id="numOpen">
+    </div>
+    <div>
+      <span class="badge blocked">blocked</span>
+      <input type="number" id="num">
+    </div>
+  </div>
+  <div class="expected">Expected: fields show same results for all inputs. Blocked field gets a green pulse.</div>
 </div>
 
 <div class="card">
-  <h2><span class="pill block">DFWP-choker</span> React-style controlled input (rejects paste)</h2>
-  <p>Simulated controlled component that reverts the value when <code>inputType === "insertFromPaste"</code>.</p>
-  <input type="text" placeholder="paste here" id="reactish">
-  <div class="expected">Expected: green pulse, field contains pasted text. (PasteNinja's synthetic <code>input</code> event has no <code>inputType</code>, so the reverter doesn't catch it.)</div>
-</div>
-
-<div class="card">
-  <h2><span class="pill ok">virtuous</span> URL-to-Markdown rewriter</h2>
-  <p>Page intercepts paste, detects URL, inserts <code>[url](url)</code> instead of raw text. PasteNinja must stay out of the way.</p>
-  <p><button class="sample" data-target="urlMd" data-text="https://example.com/article/42">Copy sample URL</button></p>
+  <h2>Virtuous paste listener</h2>
+  <p>Some inputs intercept paste events to implement some sort of desired functionality. Anti-paste-blocker tools that suppress propagation of paste events (eg "Don't F*** With Paste") can break these. PasteNinja doesn't.</p>
+  <p>This example detects URLs and turns them into markdown links.</p>
+  <p><button class="sample" data-target="urlMd" data-text="Check out https://amazingthing.com" title="Copy sample"></button></p>
   <input type="text" id="urlMd">
-  <div class="expected">Expected: field contains <code>[https://...](https://...)</code>. <strong>No green pulse</strong> — the value changed via the page's handler, so PasteNinja correctly leaves it alone.</div>
-</div>
-
-<div class="card">
-  <h2><span class="pill ok">virtuous</span> Uppercase transformer</h2>
-  <p>Page intercepts paste, uppercases the content before inserting.</p>
-  <p><button class="sample" data-target="upper" data-text="Hello mixed Case world">Copy sample text</button></p>
-  <input type="text" id="upper">
-  <div class="expected">Expected: field contains uppercased pasted text. No green pulse.</div>
-</div>
-
-<div class="card">
-  <h2><span class="pill ok">virtuous</span> Whitespace trimmer</h2>
-  <p>Page intercepts paste, trims leading/trailing whitespace before inserting. Common in form fields that accept emails or usernames.</p>
-  <p><button class="sample" data-target="trimWS" data-text="   surrounded by spaces   ">Copy padded sample</button></p>
-  <input type="text" id="trimWS">
-  <div class="expected">Expected: field contains trimmed text. No green pulse.</div>
-</div>
-
-<div class="card">
-  <h2><span class="pill edge">edge</span> Prefilled — caret in middle</h2>
-  <p>Field pre-populated with "<code>abXYc</code>". Click between <code>b</code> and <code>X</code>, paste.</p>
-  <input type="text" id="prefill" value="abXYc">
-  <div class="expected">Expected (if blocked): pasted text inserted at caret → <code>ab[paste]XYc</code>. No truncation of existing content.</div>
-</div>
-
-<div class="card">
-  <h2><span class="pill edge">edge</span> Prefilled with paste blocker</h2>
-  <p>Same as above, but with paste blocked. Tests the caret-splice path of the injection.</p>
-  <input type="text" id="prefillBlocked" value="abXYc">
-  <div class="expected">Expected: green pulse, pasted text inserted at caret position.</div>
-</div>
-
-<div class="card">
-  <h2><span class="pill edge">edge</span> <code>type="number"</code> — comparison</h2>
-  <p>Copy <strong><code>12345</code></strong> first (the default test string has non-digits). Compare native paste handling vs PasteNinja's recast path.</p>
-  <p style="margin-top: 1rem;"><strong>Non-blocked (native behavior):</strong></p>
-  <input type="number" id="numOpen">
-  <p style="margin-top: 0.75rem;"><strong>Paste-blocked (PasteNinja path):</strong></p>
-  <input type="number" id="num">
-  <div class="expected">Expected: both fields end up with the digits. Blocked field gets a green pulse and its type is briefly recast to "text" so the prototype setter doesn't strip digits.</div>
-</div>
-
-<div class="card">
-  <h2><span class="pill edge">edge</span> <code>type="email"</code> — comparison</h2>
-  <p>Selection APIs work in Chromium even though the spec says they shouldn't for email. Caret-splice path should engage on the blocked field.</p>
-  <p style="margin-top: 1rem;"><strong>Non-blocked (native behavior):</strong></p>
-  <input type="email" id="emailOpen">
-  <p style="margin-top: 0.75rem;"><strong>Paste-blocked (PasteNinja path):</strong></p>
-  <input type="email" id="email">
-  <div class="expected">Expected: both fields show the pasted text. Blocked field gets a green pulse.</div>
-</div>
-
-<div class="card">
-  <h2><span class="pill edge">edge</span> Textarea with blocker</h2>
-  <p>Multi-line target. Pre-populated with two lines; click somewhere in the middle and paste.</p>
-  <textarea id="ta">line one
-line two</textarea>
-  <div class="expected">Expected: green pulse, pasted text inserted at caret. Existing lines preserved.</div>
-</div>
-
-<div class="card">
-  <h2><span class="pill block">blocker</span> Contextmenu also disabled (right-click blocked)</h2>
-  <p>Some sites disable both keyboard and right-click paste.</p>
-  <input type="text" id="ctx" oncontextmenu="return false">
-  <div class="expected">Expected: keyboard paste produces green pulse + field updates. Right-click paste won't even open the menu (out of scope for PasteNinja).</div>
+  <div class="expected">Expected: URLs are converted to <code>[https://...](https://...)</code> markdown links. <strong>No green pulse</strong> — PasteNinja stays out of the way.</div>
 </div>
 
 <script>
-  // ---- Test-string copy button ----
-  document.getElementById("copybtn").addEventListener("click", async () => {
-    const s = document.getElementById("teststr").textContent;
-    await navigator.clipboard.writeText(s);
-    const btn = document.getElementById("copybtn");
-    const old = btn.textContent;
-    btn.textContent = "Copied!";
-    setTimeout(() => { btn.textContent = old; }, 800);
-  });
-
   // ---- Per-card sample-copy buttons ----
+  // Icons from Lucide (the same set behind react-icons' Lu* exports).
+  const COPY_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
+  const COPIED_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Copied"><path d="m12 15 2 2 4-4"/><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
   document.querySelectorAll("button.sample").forEach((btn) => {
+    btn.innerHTML = COPY_ICON;
+
     const preview = document.createElement("code");
     preview.className = "sample-preview";
     preview.textContent = btn.dataset.text;
@@ -161,59 +133,14 @@ line two</textarea>
 
     btn.addEventListener("click", async () => {
       await navigator.clipboard.writeText(btn.dataset.text);
-      const old = btn.textContent;
-      btn.textContent = "Copied!";
-      setTimeout(() => { btn.textContent = old; }, 800);
+      btn.innerHTML = COPIED_ICON;
+      btn.classList.add("copied");
+      setTimeout(() => {
+        btn.innerHTML = COPY_ICON;
+        btn.classList.remove("copied");
+      }, 1000);
     });
   });
-
-  // ---- Copy image to clipboard ----
-  document.getElementById("imagebtn").addEventListener("click", async () => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 80;
-    canvas.height = 80;
-    const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#4caf50";
-    ctx.fillRect(0, 0, 80, 80);
-    ctx.fillStyle = "white";
-    ctx.font = "bold 22px system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("IMG", 40, 42);
-
-    canvas.toBlob(async (blob) => {
-      try {
-        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-        const btn = document.getElementById("imagebtn");
-        const old = btn.textContent;
-        btn.textContent = "Image copied!";
-        setTimeout(() => { btn.textContent = old; }, 800);
-      } catch (err) {
-        alert("Image copy failed: " + err.message);
-      }
-    }, "image/png");
-  });
-
-  // ---- Live selection display ----
-  const selstate = document.getElementById("selstate");
-  function updateSel() {
-    const el = document.activeElement;
-    if (!el || (el.tagName !== "INPUT" && el.tagName !== "TEXTAREA")) {
-      selstate.textContent = "(no input focused)";
-      return;
-    }
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const valLen = el.value.length;
-    selstate.textContent =
-      `type=${el.type || el.tagName.toLowerCase()} ` +
-      `selectionStart=${start} selectionEnd=${end} ` +
-      `value.length=${valLen} value="${el.value.slice(0, 40)}${valLen > 40 ? "…" : ""}"`;
-  }
-  ["focus", "click", "keyup", "select", "input"].forEach(ev =>
-    document.addEventListener(ev, updateSel, true)
-  );
-  setInterval(updateSel, 200);
 
   // ---- Blockers ----
 
@@ -222,20 +149,7 @@ line two</textarea>
     e.preventDefault();
   });
 
-  // 2. Clear value after paste (lets paste happen, then nukes the field on input)
-  {
-    const el = document.getElementById("clearOnPaste");
-    let armed = false;
-    el.addEventListener("paste", () => { armed = true; });
-    el.addEventListener("input", (e) => {
-      if (armed) {
-        el.value = "";
-        armed = false;
-      }
-    });
-  }
-
-  // 3. React-style controlled input simulator
+  // React-style controlled input simulator
   {
     const el = document.getElementById("reactish");
     let state = "";
@@ -249,72 +163,39 @@ line two</textarea>
     });
   }
 
-  // 4. Prefilled blocked
+  // Prefilled blocked
   document.getElementById("prefillBlocked").addEventListener("paste", (e) => {
     e.preventDefault();
   });
 
-  // 5. type=number blocked
+  // type=number blocked
   document.getElementById("num").addEventListener("paste", (e) => {
     e.preventDefault();
   });
 
-  // 6. type=email blocked
-  document.getElementById("email").addEventListener("paste", (e) => {
-    e.preventDefault();
-  });
-
-  // 7. textarea blocked
-  document.getElementById("ta").addEventListener("paste", (e) => {
-    e.preventDefault();
-  });
-
-  // 8. ctx (keyboard blocker)
-  document.getElementById("ctx").addEventListener("paste", (e) => {
-    e.preventDefault();
-  });
-
-  // Virtuous paste handlers: they preventDefault the native paste, then transform
-  // and insert programmatically. PasteNinja's snapshot-then-wait detects the value
-  // changed and bails. The shared helper sets via the native prototype setter so
-  // React-style listeners would also be properly notified.
+  // Virtuous paste handler: preventDefaults the native paste, transforms, and inserts
+  // programmatically via the native value setter (with a synthetic input event so
+  // React-style listeners would also be notified). PasteNinja's snapshot-then-wait
+  // detects that the value changed and bails.
   const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
   function setAndNotify(el, value) {
     nativeSetter.call(el, value);
     el.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
-  // 10. URL-to-Markdown rewriter
+  // URL-to-Markdown rewriter — recognises URLs anywhere in the pasted text,
+  // not just whole-string URLs.
   {
     const el = document.getElementById("urlMd");
     el.addEventListener("paste", (e) => {
       const text = e.clipboardData.getData("text");
-      if (/^https?:\/\//.test(text)) {
-        e.preventDefault();
-        setAndNotify(el, el.value + `[${text}](${text})`);
-      }
+      const rewritten = text.replace(/https?:\/\/\S+/g, "[$&]($&)");
+      if (rewritten === text) return;   // no URL found, let native paste run
+      e.preventDefault();
+      setAndNotify(el, el.value + rewritten);
     });
   }
 
-  // 11. Uppercase transformer
-  {
-    const el = document.getElementById("upper");
-    el.addEventListener("paste", (e) => {
-      e.preventDefault();
-      const text = e.clipboardData.getData("text").toUpperCase();
-      setAndNotify(el, el.value + text);
-    });
-  }
-
-  // 12. Whitespace trimmer
-  {
-    const el = document.getElementById("trimWS");
-    el.addEventListener("paste", (e) => {
-      e.preventDefault();
-      const text = e.clipboardData.getData("text").trim();
-      setAndNotify(el, el.value + text);
-    });
-  }
 </script>
 
 </body>

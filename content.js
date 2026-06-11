@@ -3,8 +3,14 @@
 // Single strategy: listen for paste events in capture phase, snapshot the
 // input's value, let the natural paste chain run, then check if the value
 // updated. If it did, do nothing. If it didn't (paste was blocked or
-// silently rejected), inject the clipboard via HTMLInputElement.prototype.value
-// setter + synthetic input/change events.
+// silently rejected), inject the clipboard.
+//
+// Injection uses document.execCommand("insertText", ...) as the primary path
+// because it integrates with the browser's undo stack (Cmd-Z works), handles
+// caret position naturally, and triggers native sanitization for type=number
+// (e.g. "$1,300" → "1300" via Chromium's HandleBeforeTextInsertedEvent).
+// Falls back to the HTMLInputElement.prototype.value setter for cases where
+// execCommand returns false.
 //
 // Why this design (vs preemptive stopPropagation): we don't interfere with
 // legitimate paste handlers — rich text editors keep their HTML
@@ -29,20 +35,36 @@
     }
 
     if (!e.clipboardData) return;
-    let clipboard = e.clipboardData.getData("text");
+    const clipboard = e.clipboardData.getData("text");
 
     const before = target.value;
-    await new Promise((r) => setTimeout(r, 50));
-    const after = target.value;
+    const beforeBad = target.validity?.badInput;
 
-    if (after !== before) return;   // natural paste worked
+    // Wait for an input event on the target (native paste or a page handler
+    // actually inserted something), or for a timeout (paste was blocked at the
+    // event level and nothing happened). Event-driven detection handles slow
+    // native paths — notably type=number's char-by-char extraction, which can
+    // take >50ms for strings with separators — without false-positive injections.
+    const inputFired = await new Promise((resolve) => {
+      const handler = () => {
+        target.removeEventListener("input", handler);
+        clearTimeout(timer);
+        resolve(true);
+      };
+      target.addEventListener("input", handler);
+      const timer = setTimeout(() => {
+        target.removeEventListener("input", handler);
+        resolve(false);
+      }, 150);
+    });
 
-    // type=number: strip non-numeric chars (handles "$1,300" → "1300", "3024 234" → "3024234").
-    // Bail if nothing useful remains. Approximates Chromium's char-by-char extraction without
-    // replicating its full state machine.
-    if (target.type === "number") {
-      clipboard = clipboard.replace(/[^\d.eE-]/g, "");
-      if (!clipboard || !Number.isFinite(Number(clipboard))) return;
+    if (inputFired) {
+      // Native paste produced an input event. Confirm the result actually
+      // persisted — React-style reverters fire input and then snap the value
+      // back, in which case we still want to inject.
+      const after = target.value;
+      const afterBad = target.validity?.badInput;
+      if (after !== before || (afterBad && !beforeBad)) return;
     }
 
     console.log("[PasteNinja] paste blocked, injecting", clipboard.length, "chars into", target);
@@ -50,15 +72,30 @@
   }, true);
 
   function inject(el, value) {
+    // Ensure focus — execCommand requires it, and the user may have moved focus
+    // while we were waiting for the input event.
+    el.focus();
+
+    // Primary path: native text insertion. Undoable via Cmd-Z, caret-aware,
+    // and routes type=number through the browser's char-by-char extraction.
+    if (document.execCommand("insertText", false, value)) {
+      pulse(el);
+      return;
+    }
+
+    // Fallback: prototype value setter for elements where execCommand fails.
+    // Pre-filter type=number so the all-or-nothing value sanitization doesn't
+    // clear the field.
+    if (el.tagName === "INPUT" && el.type === "number") {
+      value = value.replace(/[^\d.eE-]/g, "");
+      if (!value || !Number.isFinite(Number(value))) return;
+    }
+
     const proto = el.tagName === "TEXTAREA"
       ? HTMLTextAreaElement.prototype
       : HTMLInputElement.prototype;
     const setter = Object.getOwnPropertyDescriptor(proto, "value").set;
 
-    // Splice at caret if the input supports selection APIs, else replace whole field.
-    // Must check before the type=number recast below — original type=number has
-    // null selectionStart, which correctly routes it to whole-field replacement
-    // (the right semantic for date/time/color/range/number).
     let next, caret;
     if (typeof el.selectionStart === "number") {
       const start = el.selectionStart;
@@ -76,7 +113,10 @@
     el.dispatchEvent(new Event("input",  { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
 
-    // Visual ack — 400ms green outline pulse
+    pulse(el);
+  }
+
+  function pulse(el) {
     const oldOutline = el.style.outline;
     el.style.outline = "2px solid #4caf50";
     setTimeout(() => { el.style.outline = oldOutline; }, 400);
