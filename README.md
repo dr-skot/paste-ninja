@@ -28,11 +28,9 @@ _Coming soon._
 
 ## Known issues
 
-- **`<input type="number">` with invalid pasted content.** When PasteNinja injects text into a number field, the browser's char-by-char extraction filter decides what's accepted (e.g. `$1,300` → `1300`, `(212) 555-1212` → `2125551212` or `212555-1212` depending on the browser). Behavior is not guaranteed to match what the same paste would produce natively, and edge cases — particularly pasting more bad content into a field that's already in a bad-input state — may diverge from native in ways we can't observe or correct from JavaScript. The displayed text of an invalid-state number field is sealed inside the input's shadow DOM and unreadable by extensions.
+- **Uses deprecated `execCommand('insertText')` function to inject text.** This is by design. `execCommand` has been officially deprecated for some time but all major browsers still support it. If it succeeds, we get the browser's native caret-position insertion, number-input sanitation, and undo support for free. If not, we set the input's value directly, using its own insertion point calculation and number normalization that isn't guaranteed to match the browser's native behavior, and undo goes out the window.
 
-- **Paste blockers at the keyboard or context-menu level.** If a site captures Cmd-V/Ctrl-V at the `keydown` event (or right-click at the `contextmenu` event) before the browser ever dispatches a `paste` event, PasteNinja never sees the attempt. Same limitation as every other paste-event-based unblocker.
-
-- **`execCommand("insertText")` is deprecated.** PasteNinja uses it as the primary injection path because it integrates with the browser's undo stack, handles caret position natively, and routes through the same sanitization the browser uses for typed input. There's a fallback path using `HTMLInputElement.prototype.value` setter for browsers where `execCommand` returns false, but undo isn't preserved in that path. If browsers eventually drop `execCommand` entirely, PasteNinja will lose Cmd-Z support and need a rewrite.
+- **Only operates when `paste` events are fired.** It's a good bet this covers all real-world cases, but a site that somehow blocked the `paste` event from ever firing (by disabling the relevant keyboard shortcuts and menu options, for example) would successfully evade the Ninja.
 
 ## License
 
