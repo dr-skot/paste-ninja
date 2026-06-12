@@ -26,81 +26,86 @@
 
   console.log("[PasteNinja] loaded on", location.href);
 
-  document.addEventListener("paste", async (e) => {
-    const target = e.target;
-    if (!target || (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA")) {
-      return;
-    }
+  document.addEventListener(
+    "paste",
+    async (e) => {
+      const target = e.target;
+      if (
+        !target ||
+        (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA")
+      ) {
+        return;
+      }
 
-    if (!e.clipboardData) return;
-    const clipboard = e.clipboardData.getData("text");
+      if (!e.clipboardData) return;
+      const clipboard = e.clipboardData.getData("text");
 
-    const before = target.value;
-    const beforeBad = target.validity?.badInput;
+      const before = target.value;
+      const beforeBad = target.validity?.badInput;
 
-    // Wait for an `input` event (paste inserted something) or a timeout (paste
-    // failed). A 50ms timeout proved too short for some native paste
-    // operations, eg pasting "(212) 555-1212" into a type=number field, which
-    // triggers the browser's char-by-char extraction algorithm. 150ms seems to
-    // work, but hasn't been extensively tested. Most input events complete well
-    // before that.
-    const inputFired = await new Promise((resolve) => {
-      const handler = () => {
-        target.removeEventListener("input", handler);
-        clearTimeout(timer);
-        resolve(true);
-      };
-      target.addEventListener("input", handler);
-      const timer = setTimeout(() => {
-        target.removeEventListener("input", handler);
-        resolve(false);
-      }, 150);
-    });
+      // Wait for an `input` event or a timeout.
+      await new Promise((resolve) => {
+        const handler = () => {
+          target.removeEventListener("input", handler);
+          clearTimeout(timer);
+          resolve();
+        };
+        target.addEventListener("input", handler);
+        const timer = setTimeout(() => {
+          target.removeEventListener("input", handler);
+          resolve();
+        }, 50);
+      });
 
-    if (inputFired) {
-      // Native paste produced an input event. Confirm the result actually
-      // persisted — React-style reverters fire input and then snap the value
-      // back, in which case we still want to inject.
       const after = target.value;
       const afterBad = target.validity?.badInput;
-      if (after !== before || (afterBad && !beforeBad)) return;
-    }
 
-    console.log("[PasteNinja] paste blocked, injecting", clipboard.length, "chars into", target);
-    inject(target, clipboard);
-  }, true);
+      // If either thae value or validity of the input changed, take no action
+      if (after !== before || afterBad !== beforeBad) return;
+
+      // Otherwise inject
+      console.log(
+        "[PasteNinja] paste blocked, injecting",
+        clipboard.length,
+        "chars into",
+        target,
+      );
+      inject(target, clipboard);
+    },
+    true,
+  );
 
   function inject(el, value) {
-    // Ensure focus — execCommand requires it, and the user may have moved focus
-    // while we were waiting for the input event.
+    // Ensure focus
     el.focus();
 
     // Primary path: native text insertion. Undoable via Cmd-Z, caret-aware, and
-    // routes type=number through the browser's char-by-char extraction.
+    // routes type=number through the browser's char-by-char extraction
     if (document.execCommand("insertText", false, value)) {
       pulse(el);
       return;
     }
 
-    // Fallback: prototype value setter for elements where execCommand fails.
-    // Pre-filter type=number so the all-or-nothing value sanitization doesn't
-    // clear the field.
+    // Fallback: use the prototype value setter
+
+    // If it's a number input, try to extract a valid number string
     if (el.tagName === "INPUT" && el.type === "number") {
-      value = value.replace(/[^\d.eE-]/g, "");
-      if (!value || !Number.isFinite(Number(value))) return;
+      value = extractNumber(value);
     }
 
-    const proto = el.tagName === "TEXTAREA"
-      ? HTMLTextAreaElement.prototype
-      : HTMLInputElement.prototype;
+    // Get the setter function from the appropriate prototype
+    const proto =
+      el.tagName === "TEXTAREA"
+        ? HTMLTextAreaElement.prototype
+        : HTMLInputElement.prototype;
     const setter = Object.getOwnPropertyDescriptor(proto, "value").set;
 
     // Determine the insertion point and generate the post-insertion value
     let next, caret;
     if (typeof el.selectionStart === "number") {
       const start = el.selectionStart;
-      const end   = el.selectionEnd;
-      next  = el.value.slice(0, start) + value + el.value.slice(end);
+      const end = el.selectionEnd;
+      next = el.value.slice(0, start) + value + el.value.slice(end);
       caret = start + value.length;
     } else {
       next = value;
@@ -109,20 +114,58 @@
     // Update the input value and set the caret position
     setter.call(el, next);
     if (caret !== undefined) {
-      try { el.setSelectionRange(caret, caret); } catch {}
+      try {
+        el.setSelectionRange(caret, caret);
+      } catch {}
     }
 
     // Dispatch the appropriate events
-    el.dispatchEvent(new Event("input",  { bubbles: true }));
+    el.dispatchEvent(new Event("input", { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
 
     pulse(el);
+  }
+
+  // Extract a valid number from a arbitrary string
+  function extractNumber(raw = "") {
+    // get current locale's decimal separator
+    const dot =
+      new Intl.NumberFormat()
+        .formatToParts(0.1)
+        .find((p) => p.type === "decimal")?.value || ".";
+
+    // drop invalid characters
+    let s = raw.replace(new RegExp(`[^+\\-\\d${dot}eE]`, "g"), "");
+
+    let result = "";
+    let seen = { digit: false, dot: false, e: false };
+
+    // walk the string char by char
+    for (const c of s) {
+      const prev = result.slice(-1);
+      const is = { digit: /\d/.test(c), dot: c === dot, e: /[eE]/.test(c) };
+      // accept digits, one e, one dot before e, +/- at start or right after e
+      const accepted =
+        is.digit ||
+        (is.dot && !seen.dot && !seen.e) ||
+        (is.e && seen.digit && !seen.e) ||
+        (/[+-]/.test(c) && (!prev || /[eE]/.test(prev)));
+
+      if (accepted) {
+        result += c;
+        for (const x in seen) seen[x] ||= is[x];
+      }
+    }
+
+    return Number.isFinite(Number(result)) ? result : "";
   }
 
   // Give a visual signal that PasteNinja intervened
   function pulse(el) {
     const oldOutline = el.style.outline;
     el.style.outline = "2px solid #4caf50";
-    setTimeout(() => { el.style.outline = oldOutline; }, 400);
+    setTimeout(() => {
+      el.style.outline = oldOutline;
+    }, 400);
   }
 })();

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- DFWP-style clipboard, traced as a starting point. Single color, no text, no document overlay. -->
+
+  <!-- Clipboard body — generous rounded rectangle -->
+  <rect x="18" y="26" width="92" height="98" rx="10" fill="#5fa8e0"/>
+
+  <!-- Pivot bar — slim horizontal strip near the top of the board -->
+  <rect x="40" y="20" width="48" height="14" rx="3" fill="#5fa8e0"/>
+
+  <!-- Pill lever — tall, fully rounded ends -->
+  <rect x="58" y="4" width="12" height="32" rx="6" fill="#5fa8e0"/>
+</svg>

@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>type=number double-injection bug — strategy comparison</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+  h1 { margin-bottom: 0.25rem; }
+  .lede { color: #666; margin-top: 0; }
+  .controls { background: #f8f8f8; border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin: 1rem 0; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+  .controls button { font: inherit; padding: 0.35rem 0.8rem; border: 1px solid #555; background: white; border-radius: 4px; cursor: pointer; }
+  .controls button:hover { background: #eee; }
+  .controls button.primary { background: #333; color: white; }
+  .controls button.primary:hover { background: #555; }
+  .field { border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin: 0.75rem 0; }
+  .field h2 { margin: 0 0 0.5rem; font-size: 0.95rem; }
+  .field .desc { font-size: 0.85rem; color: #666; margin: 0 0 0.6rem; font-family: ui-monospace, monospace; }
+  .field .input-row { display: flex; gap: 0.5rem; align-items: stretch; }
+  .field input { font: inherit; padding: 0.4rem 0.6rem; flex: 1; box-sizing: border-box; border: 1px solid #bbb; border-radius: 4px; }
+  .field .inspect { font: inherit; padding: 0.4rem 0.7rem; border: 1px solid #555; background: white; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+  .field .inspect:hover { background: #eee; }
+  .field .log { font-family: ui-monospace, monospace; font-size: 11px; color: #888; margin-top: 0.4rem; min-height: 1.3em; }
+  .field .log .pulsed { color: #2e7d32; font-weight: 600; }
+  .reset { margin-top: 1rem; }
+  code { background: #f4f4f4; padding: 0 0.3em; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<h1>type=number double-inject bug — strategy comparison</h1>
+<p class="lede"><strong>Turn off the PasteNinja extension first.</strong> Each field below emulates a different PasteNinja detection strategy in-page. Paste <code>(212) 555-1212</code> into each and see which ones double-insert.</p>
+
+<div class="controls">
+  <button class="primary" data-text="(212) 555-1212">Load clipboard: (212) 555-1212</button>
+  <button id="reset">Reset all fields</button>
+</div>
+
+<div class="field" data-strategy="native">
+  <h2>0. Native baseline (no emulation)</h2>
+  <p class="desc">Plain type=number input. No paste listener. Whatever the browser does.</p>
+  <div class="input-row"><input type="number"><button class="inspect" type="button">Inspect</button><button class="cast" type="button">Cast→text→read</button><button class="selread" type="button">selectAll→getSelection</button><button class="clipread" type="button">Clipboard hack</button></div>
+  <div class="log"></div>
+</div>
+
+<div class="field" data-strategy="snapshot50">
+  <h2>1. 50ms snapshot, value check only</h2>
+  <p class="desc">await sleep(50); if (after === before) inject;</p>
+  <div class="input-row"><input type="number"><button class="inspect" type="button">Inspect</button><button class="cast" type="button">Cast→text→read</button><button class="selread" type="button">selectAll→getSelection</button><button class="clipread" type="button">Clipboard hack</button></div>
+  <div class="log"></div>
+</div>
+
+<div class="field" data-strategy="snapshot50bad">
+  <h2>2. 50ms snapshot, value + badInput check</h2>
+  <p class="desc">await sleep(50); if (after === before && !(badInputChanged)) inject;</p>
+  <div class="input-row"><input type="number"><button class="inspect" type="button">Inspect</button><button class="cast" type="button">Cast→text→read</button><button class="selread" type="button">selectAll→getSelection</button><button class="clipread" type="button">Clipboard hack</button></div>
+  <div class="log"></div>
+</div>
+
+<div class="field" data-strategy="event150">
+  <h2>3. input event or 150ms timeout, value check only</h2>
+  <p class="desc">await inputOrTimeout(150); if (inputFired && after === before) inject; else if (!inputFired) inject;</p>
+  <div class="input-row"><input type="number"><button class="inspect" type="button">Inspect</button><button class="cast" type="button">Cast→text→read</button><button class="selread" type="button">selectAll→getSelection</button><button class="clipread" type="button">Clipboard hack</button></div>
+  <div class="log"></div>
+</div>
+
+<div class="field" data-strategy="event150bad">
+  <h2>4. input event or 150ms timeout, value + badInput check</h2>
+  <p class="desc">await inputOrTimeout(150); if (inputFired && after === before && !(badInputChanged)) inject; else if (!inputFired) inject;</p>
+  <div class="input-row"><input type="number"><button class="inspect" type="button">Inspect</button><button class="cast" type="button">Cast→text→read</button><button class="selread" type="button">selectAll→getSelection</button><button class="clipread" type="button">Clipboard hack</button></div>
+  <div class="log"></div>
+</div>
+
+<div class="field" data-strategy="visread">
+  <h2>5. 50ms snapshot, but use selectAll+getSelection as value-getter when badInput (no selection restore)</h2>
+  <p class="desc">getValue(el) = badInput ? selectAll+getSelection : el.value; await sleep(50); if (after === before) inject;</p>
+  <div class="input-row"><input type="number"><button class="inspect" type="button">Inspect</button><button class="cast" type="button">Cast→text→read</button><button class="selread" type="button">selectAll→getSelection</button><button class="clipread" type="button">Clipboard hack</button></div>
+  <div class="log"></div>
+</div>
+
+<div class="field" data-strategy="visread-restore">
+  <h2>6. Same as 5 but tries to save/restore the prior Selection range (option A)</h2>
+  <p class="desc">save Range; selectAll; read; removeAllRanges; restore Range</p>
+  <div class="input-row"><input type="number"><button class="inspect" type="button">Inspect</button><button class="cast" type="button">Cast→text→read</button><button class="selread" type="button">selectAll→getSelection</button><button class="clipread" type="button">Clipboard hack</button></div>
+  <div class="log"></div>
+</div>
+
+<script>
+  function pulse(el) {
+    const oldOutline = el.style.outline;
+    el.style.outline = "2px solid #4caf50";
+    setTimeout(() => { el.style.outline = oldOutline; }, 400);
+  }
+
+  function log(field, msg, klass) {
+    const slot = field.querySelector(".log");
+    slot.innerHTML = `<span class="${klass || ''}">${msg}</span>`;
+  }
+
+  function inject(el, value) {
+    el.focus();
+    if (document.execCommand("insertText", false, value)) return true;
+    return false;
+  }
+
+  // Read the input's effective value. When badInput, use the selectAll trick
+  // to expose the visible content via window.getSelection().toString(). We
+  // INTENTIONALLY leave the selection in place — whatever happens next
+  // (native paste or our injection) will replace the bad content cleanly.
+  function getValue(el) {
+    if (el.validity?.badInput) {
+      el.focus();
+      document.execCommand("selectAll");
+      return window.getSelection().toString();
+    }
+    return el.value;
+  }
+
+  function dumpSelection(label) {
+    const sel = window.getSelection();
+    console.log(`\n--- Selection dump: ${label} ---`);
+    console.log("sel:", sel);
+    console.log("sel.toString():", JSON.stringify(sel.toString()));
+    console.log("sel.anchorNode:", sel.anchorNode);
+    console.log("sel.anchorOffset:", sel.anchorOffset);
+    console.log("sel.focusNode:", sel.focusNode);
+    console.log("sel.focusOffset:", sel.focusOffset);
+    console.log("sel.isCollapsed:", sel.isCollapsed);
+    console.log("sel.rangeCount:", sel.rangeCount);
+    console.log("sel.type:", sel.type);
+    console.log("sel.direction:", sel.direction);
+    for (let i = 0; i < sel.rangeCount; i++) {
+      const r = sel.getRangeAt(i);
+      console.log(`sel.getRangeAt(${i}):`, r,
+        "startContainer:", r.startContainer,
+        "startOffset:", r.startOffset,
+        "endContainer:", r.endContainer,
+        "endOffset:", r.endOffset,
+        "collapsed:", r.collapsed,
+        "toString:", JSON.stringify(r.toString())
+      );
+    }
+    return sel;
+  }
+
+  // Same as getValue, but attempts to save and restore the user's prior
+  // Selection range so the input's caret/selection state survives the read.
+  function getValueWithRestore(el) {
+    if (!el.validity?.badInput) return el.value;
+    dumpSelection("before el.focus()");
+    el.focus();
+    dumpSelection("after el.focus(), before selectAll");
+    const sel = window.getSelection();
+    const savedRange = sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
+    console.log("savedRange:", savedRange);
+    document.execCommand("selectAll");
+    dumpSelection("after selectAll");
+    const v = sel.toString();
+    sel.removeAllRanges();
+    dumpSelection("after removeAllRanges");
+    if (savedRange) {
+      try { sel.addRange(savedRange); } catch (err) { console.log("addRange threw:", err); }
+    }
+    dumpSelection("after restore attempt");
+    return v;
+  }
+
+  function strategyOf(field) {
+    return field.dataset.strategy;
+  }
+
+  // ---- Wire up each strategy ----
+  document.querySelectorAll(".field").forEach((field) => {
+    const strategy = strategyOf(field);
+    const input = field.querySelector("input");
+
+    if (strategy === "native") return;  // no listener
+
+    input.addEventListener("paste", async (e) => {
+      const clipboard = e.clipboardData?.getData("text") ?? "";
+
+      // Strategies 5 and 6: use a value-getter that handles badInput specially.
+      if (strategy === "visread" || strategy === "visread-restore") {
+        const getter = strategy === "visread-restore" ? getValueWithRestore : getValue;
+        const before = getter(input);
+        await new Promise((r) => setTimeout(r, 50));
+        const after = getter(input);
+        const changed = after !== before;
+        const info = `before="${before}" after="${after}" changed=${changed}`;
+        if (changed) {
+          log(field, `bailed. ${info}`);
+        } else {
+          inject(input, clipboard);
+          pulse(input);
+          log(field, `INJECTED. ${info}`, "pulsed");
+        }
+        return;
+      }
+
+      const before = input.value;
+      const beforeBad = input.validity?.badInput;
+
+      let inputFired = null;
+      let after, afterBad;
+
+      if (strategy === "snapshot50" || strategy === "snapshot50bad") {
+        await new Promise((r) => setTimeout(r, 50));
+        after = input.value;
+        afterBad = input.validity?.badInput;
+      } else {
+        // event-driven, 150ms fallback
+        inputFired = await new Promise((resolve) => {
+          const handler = () => {
+            input.removeEventListener("input", handler);
+            clearTimeout(timer);
+            resolve(true);
+          };
+          input.addEventListener("input", handler);
+          const timer = setTimeout(() => {
+            input.removeEventListener("input", handler);
+            resolve(false);
+          }, 150);
+        });
+        after = input.value;
+        afterBad = input.validity?.badInput;
+      }
+
+      const valueChanged = after !== before;
+      const badInputChanged = afterBad && !beforeBad;
+
+      const checksBadInput = strategy === "snapshot50bad" || strategy === "event150bad";
+      const usesInputEvent = strategy === "event150" || strategy === "event150bad";
+
+      let shouldInject;
+      if (usesInputEvent && !inputFired) {
+        shouldInject = true;
+      } else if (checksBadInput) {
+        shouldInject = !valueChanged && !badInputChanged;
+      } else {
+        shouldInject = !valueChanged;
+      }
+
+      const info = `before="${before}" beforeBad=${beforeBad} after="${after}" afterBad=${afterBad} inputFired=${inputFired} valueChanged=${valueChanged} badInputChanged=${badInputChanged}`;
+
+      if (shouldInject) {
+        inject(input, clipboard);
+        pulse(input);
+        log(field, `INJECTED. ${info}`, "pulsed");
+      } else {
+        log(field, `bailed. ${info}`);
+      }
+    });
+  });
+
+  // Inspect / cast buttons
+  document.querySelectorAll(".field .inspect").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const field = btn.closest(".field");
+      const input = field.querySelector("input");
+      const v = input.value;
+      const bad = input.validity?.badInput;
+      const vAsNum = input.valueAsNumber;
+      const attr = input.getAttribute("value");
+      const text = input.textContent;
+      const shadow = input.shadowRoot;
+      log(field,
+        `el.value="${v}" | badInput=${bad} | valueAsNumber=${vAsNum} | ` +
+        `getAttribute("value")=${attr === null ? "null" : `"${attr}"`} | ` +
+        `textContent="${text}" | shadowRoot=${shadow}`,
+        ""
+      );
+    });
+  });
+
+  document.querySelectorAll(".field .cast").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const field = btn.closest(".field");
+      const input = field.querySelector("input");
+      const originalType = input.type;
+      input.type = "text";
+      const visible = input.value;
+      input.type = originalType;
+      log(field, `cast→text→read: el.value="${visible}" (then restored type=${originalType})`, "");
+    });
+  });
+
+  document.querySelectorAll(".field .selread").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const field = btn.closest(".field");
+      const input = field.querySelector("input");
+      input.focus();
+      document.execCommand("selectAll");
+      const sel = window.getSelection();
+      const selStr = sel ? sel.toString() : "(null)";
+      const selRanges = sel ? sel.rangeCount : 0;
+      log(field, `selectAll → window.getSelection(): toString="${selStr}" rangeCount=${selRanges}`, "");
+    });
+  });
+
+  document.querySelectorAll(".field .clipread").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const field = btn.closest(".field");
+      const input = field.querySelector("input");
+      let saved;
+      try {
+        saved = await navigator.clipboard.readText();
+      } catch (err) {
+        log(field, `clipboard hack failed at read-save: ${err.message}`, "");
+        return;
+      }
+      input.focus();
+      const selectOk = document.execCommand("selectAll");
+      const copyOk = document.execCommand("copy");
+      // Give the clipboard a moment to settle.
+      await new Promise((r) => setTimeout(r, 50));
+      let visible;
+      try {
+        visible = await navigator.clipboard.readText();
+      } catch (err) {
+        log(field, `clipboard hack failed at read-copied: ${err.message}`, "");
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(saved);
+      } catch (err) {
+        log(field, `clipboard hack: read OK but restore failed: ${err.message}. Got: "${visible}"`, "");
+        return;
+      }
+      log(field, `clipboard hack: selectAll=${selectOk} copy=${copyOk} → visible="${visible}" (saved+restored "${saved}")`, "");
+    });
+  });
+
+  document.querySelector("button[data-text]").addEventListener("click", async (e) => {
+    await navigator.clipboard.writeText(e.target.dataset.text);
+    const old = e.target.textContent;
+    e.target.textContent = "Loaded! Now Cmd-V into each field.";
+    setTimeout(() => { e.target.textContent = old; }, 1500);
+  });
+
+  document.getElementById("reset").addEventListener("click", () => {
+    document.querySelectorAll(".field input").forEach((el) => { el.value = ""; });
+    document.querySelectorAll(".field .log").forEach((el) => { el.innerHTML = ""; });
+  });
+</script>
+
+</body>
+</html>
