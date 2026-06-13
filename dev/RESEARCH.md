@@ -98,7 +98,7 @@ Paste-blocking is widely hated. Reference points if you want to write about the 
 
 ## Dead links / stale references
 
-- `paste-test.glitch.me` — returns HTTP 410 Gone. Cannot be used in the README's Verify section. Replace with `test.html` (local) or one of the Category A sites.
+- `paste-test.glitch.me` — returns HTTP 410 Gone. Cannot be used in the README's Verify section. Replace with `demo.html` (local) or one of the Category A sites.
 - DFWP issue tracker has high decay rate. Live-tested 2026-06-10 and found stale: GoDaddy login (#120), TreasuryDirect login (#125), Maryland SDAT (#122), Gmail image paste (#97), Slack image paste (#14/#88). All now work normally with DFWP enabled or without any extension. Issue list should be re-verified before being cited as proof of current breakage.
 
 ## Testing methodology notes
