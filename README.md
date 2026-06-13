@@ -30,13 +30,17 @@ _Coming soon._
 
 Live demo: **<https://dr-skot.github.io/paste-ninja/demo.html>**
 
-The demo page hosts a handful of inputs that exercise common paste-blocking patterns. With PasteNinja installed, paste should work in all of them. Without it, several should refuse.
+Shows a handful of inputs using common paste-block patterns. With PasteNinja installed, paste should succeed in all of them. You can also use this page to compare PasteNinja with other solutions.
 
 ## Known issues
 
 - **Uses deprecated `execCommand('insertText')` function to inject text.** This is by design. `execCommand` has been officially deprecated for some time but all major browsers still support it. If it succeeds, we get the browser's native caret-position insertion, number-input sanitation, and undo support for free. If not, we set the input's value directly, using its own insertion point calculation and number normalization that isn't guaranteed to match the browser's native behavior, and undo goes out the window.
 
 - **Only operates when `paste` events are fired.** It's a good bet this covers all real-world cases, but a site that somehow blocked the `paste` event from ever firing (by disabling the relevant keyboard shortcuts and menu options, for example) would successfully evade the Ninja.
+
+## Privacy
+
+PasteNinja does not collect, transmit, or store any user data. See the [privacy policy](https://dr-skot.github.io/paste-ninja/privacy.html) for details.
 
 ## License
 
