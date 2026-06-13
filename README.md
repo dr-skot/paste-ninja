@@ -26,6 +26,12 @@ _Coming soon._
 4. Click **Load unpacked** and pick this folder.
 5. Done. The extension runs on all sites.
 
+## Try it
+
+Live demo: **<https://dr-skot.github.io/paste-ninja/demo.html>**
+
+The demo page hosts a handful of inputs that exercise common paste-blocking patterns. With PasteNinja installed, paste should work in all of them. Without it, several should refuse.
+
 ## Known issues
 
 - **Uses deprecated `execCommand('insertText')` function to inject text.** This is by design. `execCommand` has been officially deprecated for some time but all major browsers still support it. If it succeeds, we get the browser's native caret-position insertion, number-input sanitation, and undo support for free. If not, we set the input's value directly, using its own insertion point calculation and number normalization that isn't guaranteed to match the browser's native behavior, and undo goes out the window.
