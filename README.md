@@ -4,7 +4,7 @@ Browser extension that slips past paste blockers, defending your god-given right
 
 Some sites reject paste on sensitive inputs, apparently thinking it enhances security. Nonsense. No real-world attacker is thwarted by a clipboard blocker, and forcing users to type passwords only incentivizes them to make weaker ones. Account numbers and strong passwords are hard to transport mentally _by design_. Copy-pasting them is good practice—less laborious and less error-prone than entering them by hand.
 
-Some sites reject paste on retype-your-email fields, forcing the user to type in an theater of preventing typos!
+Some sites reject paste on retype-your-email fields, forcing the user to type in the name of preventing typos!
 
 PasteNinja is here to help you fight the madness. Your clipboard belongs to you; don't let websites tell you when you can and can't use it.
 
