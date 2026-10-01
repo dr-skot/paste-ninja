@@ -110,6 +110,23 @@
 </div>
 
 <div class="card">
+  <h2>Field inside a shadow root</h2>
+  <p>A web component wrapping its own <code>&lt;input&gt;</code>, the shape Chase's <code>mds-text-input</code> uses. Shadow DOM retargets the paste event on its way out, so a listener on <code>document</code> sees the host custom element rather than the field — the bug that made PasteNinja fail silently on a Chase wire transfer.</p>
+  <p><button class="sample" data-target="shadowBlocked" data-text="987654321" title="Copy sample"></button></p>
+  <div class="split">
+    <div>
+      <span class="badge unblocked">unblocked</span>
+      <mds-text-input id="shadowOpen"></mds-text-input>
+    </div>
+    <div>
+      <span class="badge blocked">blocked</span>
+      <mds-text-input id="shadowBlocked" blocked></mds-text-input>
+    </div>
+  </div>
+  <div class="expected">Expected: both fields end up with the pasted text. Blocked field gets a green pulse. A <em>closed</em> root would be unreachable — PasteNinja warns and stands down.</div>
+</div>
+
+<div class="card">
   <h2>Virtuous paste listener</h2>
   <p>Some inputs intercept paste events to implement some sort of desired functionality. Anti-paste-blocker tools that suppress propagation of paste events (eg "Don't F*** With Paste") can break these. PasteNinja doesn't.</p>
   <p>This example detects URLs and turns them into markdown links.</p>
@@ -171,6 +188,26 @@
   // type=number blocked
   document.getElementById("num").addEventListener("paste", (e) => {
     e.preventDefault();
+  });
+
+  // Field inside an open shadow root, nested the way a design-system text
+  // input nests it: host -> div -> div -> input. Styles have to live inside the
+  // root too; the page's CSS does not cross the boundary.
+  customElements.define("mds-text-input", class extends HTMLElement {
+    connectedCallback() {
+      if (this.shadowRoot) return;
+      const root = this.attachShadow({ mode: "open" });
+      root.innerHTML =
+        '<style>input { font: inherit; padding: 0.4rem 0.5rem; width: 100%;' +
+        ' box-sizing: border-box; border: 1px solid #bbb; border-radius: 4px; }</style>' +
+        '<div class="mds-text-input"><div class="mds-text-input__container">' +
+        '<input type="text" placeholder="paste here"></div></div>';
+      if (this.hasAttribute("blocked")) {
+        root.querySelector("input").addEventListener("paste", (e) => {
+          e.preventDefault();
+        });
+      }
+    }
   });
 
   // Virtuous paste handler: preventDefaults the native paste, transforms, and inserts

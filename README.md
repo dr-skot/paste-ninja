@@ -32,9 +32,19 @@ Live demo: **<https://dr-skot.github.io/paste-ninja/demo.html>**
 
 Shows a handful of inputs using common paste-block patterns. With PasteNinja installed, paste should succeed in all of them. You can also use this page to compare PasteNinja with other solutions.
 
+The logic in `lib.js` has tests, which need no dependencies beyond Node:
+
+```sh
+node --test dev/lib.test.js
+```
+
+They cover decisions, not paste mechanics — the browser behavior is what `demo.html` is for.
+
 ## Known issues
 
 - **Uses deprecated `execCommand('insertText')` function to inject text.** This is by design. `execCommand` has been officially deprecated for some time but all major browsers still support it. If it succeeds, we get the browser's native caret-position insertion, number-input sanitation, and undo support for free. If not, we set the input's value directly, using its own insertion point calculation and number normalization that isn't guaranteed to match the browser's native behavior, and undo goes out the window.
+
+- **Can't reach a field inside a *closed* shadow root.** Fields inside open shadow roots are handled — the event is retargeted to the host custom element on its way out, and PasteNinja recovers the real field from `event.composedPath()`. A closed root truncates that path at the host, leaving the field unreachable. PasteNinja says so in the console rather than failing quietly.
 
 - **Only operates when `paste` events are fired.** It's a good bet this covers all real-world cases, but a site that somehow blocked the `paste` event from ever firing (by disabling the relevant keyboard shortcuts and menu options, for example) would successfully evade the Ninja.
 
