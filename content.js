@@ -32,15 +32,17 @@
 // failed paste is a bug in this file, not a diagnosis.
 //
 // To check whether the script is live in a frame without having to catch a log
-// at load time, read the marker it leaves on the DOM (the page world can see
-// it, so this works from an ordinary console):
+// at load time, ping it from an ordinary console (DOM events cross into the
+// isolated world) and it answers with a log line:
 //
-//   document.documentElement.dataset.pasteninja
+//   document.dispatchEvent(new Event("pasteninja:ping"))
+//
+// No marker on the DOM: an attribute on <html> breaks React hydration.
 
 (() => {
   "use strict";
 
-  // Read from the manifest so the marker can never drift out of sync with the
+  // Read from the manifest so the logs can never drift out of sync with the
   // version the browser is actually running.
   const VERSION = (() => {
     try {
@@ -64,7 +66,12 @@
   const warn = (...args) => console.warn("[PasteNinja]", ...args);
 
   console.log(`[PasteNinja] loaded v${VERSION} on`, location.href);
-  mark();
+  document.addEventListener("pasteninja:ping", () => {
+    console.log(
+      `[PasteNinja] live v${VERSION} (debug ${DEBUG ? "on" : "off"}) on`,
+      location.href,
+    );
+  });
 
   // From lib.js, loaded ahead of this file into the same isolated world.
   const { resolveField, extractNumber } = PasteNinjaLib;
@@ -296,20 +303,6 @@
     setTimeout(() => {
       el.style.outline = oldOutline;
     }, 400);
-  }
-
-  // Leave a queryable "I am running here" marker, one per frame.
-  function mark() {
-    const set = () => {
-      const root = document.documentElement;
-      if (!root) return false;
-      root.dataset.pasteninja = VERSION;
-      root.dataset.pasteninjaDebug = DEBUG ? "1" : "0";
-      return true;
-    };
-    if (!set()) {
-      document.addEventListener("DOMContentLoaded", set, { once: true });
-    }
   }
 
   // Short, readable identity for an element in a log line.
